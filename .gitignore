@@ -10,6 +10,3 @@ __pycache__/
 # Environment variables
 .env
 
-# Database (Optional, but good practice so you don't upload test data)
-*.db
-*.sqlite3

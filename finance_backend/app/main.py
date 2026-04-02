@@ -1,37 +1,28 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List
 from jose import JWTError, jwt
 
 from app import models, schemas
 from app.database import engine, SessionLocal
 from app.core.security import get_password_hash, verify_password, create_access_token, SECRET_KEY, ALGORITHM
 
+# This generates the finance.db file
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Finance AI - Final Submission")
+app = FastAPI(title="Finance AI - Cloud Deployment")
 
-# Sledgehammer CORS
-@app.middleware("http")
-async def manual_cors(request: Request, call_next):
-    origin = request.headers.get("origin", "*")
-    if request.method == "OPTIONS":
-        return JSONResponse(
-            content="OK",
-            headers={
-                "Access-Control-Allow-Origin": origin,
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Allow-Methods": "*",
-                "Access-Control-Allow-Headers": "*",
-            },
-        )
-    response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = origin
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    return response
+# 🔥 CLOUD DEPLOYMENT CORS CONFIGURATION
+# This allows your Vercel frontend to talk to your Render backend safely.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=False, 
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
@@ -46,13 +37,12 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
-        if username is None: raise HTTPException(status_code=401, detail="Invalid token")
+        if username is None: raise HTTPException(status_code=401)
     except JWTError: 
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401)
     
     user = db.query(models.User).filter(models.User.username == username).first()
-    if user is None: 
-        raise HTTPException(status_code=401, detail="User not found")
+    if user is None: raise HTTPException(status_code=401)
     return user
 
 # --- ROUTES ---
@@ -60,11 +50,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 @app.post("/users", response_model=schemas.UserResponse)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     if db.query(models.User).filter(models.User.username == user.username).first():
-        raise HTTPException(status_code=400, detail="User exists")
+        raise HTTPException(status_code=400, detail="Exists")
     new_user = models.User(username=user.username, hashed_password=get_password_hash(user.password), role=user.role)
     db.add(new_user)
     db.commit()
-    db.refresh(new_user)
     return new_user
 
 @app.post("/login")
@@ -85,14 +74,12 @@ def create_record(record: schemas.RecordCreate, db: Session = Depends(get_db), c
     new_rec = models.FinanceRecord(**data)
     db.add(new_rec)
     db.commit()
-    db.refresh(new_rec)
     return new_rec
 
 @app.get("/analytics")
 def get_analytics(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     cats = db.query(models.FinanceRecord.category, func.sum(models.FinanceRecord.amount)).filter(models.FinanceRecord.owner_id == current_user.id, models.FinanceRecord.record_type == "expense").group_by(models.FinanceRecord.category).all()
     
-    # 🔥 FIXED BUG: Replaced group_by(1) with the explicit SQLAlchemy function to prevent the 500 crash
     trends = db.query(
         func.strftime('%m', models.FinanceRecord.date), 
         func.sum(models.FinanceRecord.amount)
