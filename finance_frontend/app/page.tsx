@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { LayoutDashboard, LogOut, Sparkles, Plus } from 'lucide-react';
 
+// 🔥 Pointing directly to your live Render backend
 const API_BASE = "https://finance-dashboard-assessment.onrender.com";
 
 export default function FinanceDashboard() {
@@ -64,7 +65,7 @@ export default function FinanceDashboard() {
       setIsLoggedIn(true);
       setTimeout(() => fetchFullData(res.access_token), 100);
     } catch (err) { 
-      alert("Login Error. Ensure Backend is running on 127.0.0.1:8000"); 
+      alert("Login Error: The free backend server is waking up. Please wait 30 seconds and try again."); 
     }
   };
 
@@ -79,7 +80,7 @@ export default function FinanceDashboard() {
       setData({ summary: sum, records: rec, analytics: ana });
     } catch (err) { 
       console.error("Fetch Data Error:", err);
-      alert("Failed to load dashboard data. Please log in again.");
+      alert("Failed to load dashboard data. The server might be sleeping.");
       setIsLoggedIn(false);
     }
   };
@@ -109,7 +110,7 @@ export default function FinanceDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 p-6 md:p-12 font-sans">
+    <div className="min-h-screen bg-slate-950 text-slate-200 p-6 md:p-12 font-sans overflow-x-hidden">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-10">
           <div className="flex items-center gap-3 text-white">
@@ -143,16 +144,20 @@ export default function FinanceDashboard() {
               </div>
             </div>
 
-            <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-xl" style={{ height: '400px' }}>
-                <ResponsiveContainer width="100%" height="100%" minHeight={300}>
-                    <LineChart data={data.analytics.trend_data || []}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                        <XAxis dataKey="month" stroke="#64748b" fontSize={12} />
-                        <YAxis stroke="#64748b" fontSize={12} />
-                        <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '12px' }} />
-                        <Line type="monotone" dataKey="amount" stroke="#3b82f6" strokeWidth={4} dot={{ r: 6, fill: "#3b82f6" }} />
-                    </LineChart>
-                </ResponsiveContainer>
+            <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-xl overflow-x-auto h-96">
+                {data.analytics.trend_data && data.analytics.trend_data.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+                        <LineChart data={data.analytics.trend_data}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                            <XAxis dataKey="month" stroke="#64748b" fontSize={12} />
+                            <YAxis stroke="#64748b" fontSize={12} />
+                            <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '12px' }} />
+                            <Line type="monotone" dataKey="amount" stroke="#3b82f6" strokeWidth={4} dot={{ r: 6, fill: "#3b82f6" }} />
+                        </LineChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="flex items-center justify-center h-full text-slate-500 italic">No trend data available yet. Add a record!</div>
+                )}
             </div>
           </div>
 
